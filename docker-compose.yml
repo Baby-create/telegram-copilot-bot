@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  telegram-copilot-bot:
+    build: .
+    container_name: telegram-copilot-bot
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    ports:
+      - "8080:8080"  # For health checks
+    networks:
+      - bot-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('Bot is running')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - config-setup
+
+  config-setup:
+    build: .
+    container_name: telegram-bot-config-setup
+    entrypoint: ["python", "config_detector.py"]
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - bot-network
+
+networks:
+  bot-network:
+    driver: bridge
+
+volumes:
+  logs:
+    driver: local
+  data:
+    driver: local
