@@ -8,6 +8,8 @@
 - 🔍 **Auto Configuration**: Automatically detects and populates required API keys
 - 🐳 **Docker Support**: Complete containerization with Docker and docker-compose
 - 🤖 **AI Integration**: OpenAI GPT-powered chat responses
+- 📱 **Web Interface**: React-based frontend with ResizableVideo component
+- 🎥 **Interactive Video Player**: Drag and resize video windows with mouse
 - 🔧 **Zero Manual Setup**: No manual configuration required
 
 ## Quick Start (Windows)
@@ -83,6 +85,36 @@ The bot automatically searches for configuration in:
 - `/help` - Show available commands
 - **Text messages** - AI-powered responses using OpenAI
 
+## Web Interface
+
+The bot includes a React-based web interface featuring the **ResizableVideo** component:
+
+### Access
+- **Health Check**: `http://localhost:8080/health`
+- **Web Interface**: `http://localhost:8080/app`
+
+### ResizableVideo Component Features
+- ✨ **Drag & Drop**: Click and drag video windows to move them around
+- 🔄 **8-Direction Resize**: Resize handles on all corners and edges
+- 📐 **Size Constraints**: Configurable min/max dimensions
+- 🎯 **Boundary Detection**: Keeps videos within viewport
+- 🎮 **Native Controls**: Full video player functionality
+- 💫 **Smooth Animations**: CSS transitions for better UX
+
+### Development
+```bash
+# Install frontend dependencies
+npm install
+
+# Development mode
+npm run dev      # http://localhost:3000
+
+# Production build
+npm run build    # Creates dist/ folder
+```
+
+See [README_FRONTEND.md](README_FRONTEND.md) for detailed documentation.
+
 ## File Structure
 
 ```
@@ -95,7 +127,18 @@ telegram-copilot-bot/
 ├── docker-compose.yml    # Docker orchestration
 ├── deploy_bot.bat        # Windows one-click deployment
 ├── .gitignore           # Git ignore rules
-└── README.md            # This file
+├── README.md            # This file
+├── README_FRONTEND.md   # Frontend documentation
+├── package.json         # Frontend dependencies
+├── webpack.config.js    # Frontend build configuration
+└── src/                 # React frontend source code
+    ├── components/
+    │   ├── ResizableVideo.jsx    # Drag & resize video component
+    │   └── ResizableVideo.css    # Component styles
+    ├── App.jsx          # Main React application
+    ├── App.css          # Application styles
+    ├── index.js         # React entry point
+    └── index.html       # HTML template
 ```
 
 ## Deployment Options
