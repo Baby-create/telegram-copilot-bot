@@ -15,6 +15,7 @@ import openai
 from dotenv import load_dotenv
 from config_detector import ConfigDetector
 from aiohttp import web
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -153,17 +154,50 @@ This bot is deployed using fully automated scripts - no manual configuration req
             return "I'm sorry, I'm having trouble generating a response right now. Please try again."
             
     async def _start_health_server(self):
-        """Start health check HTTP server"""
+        """Start health check HTTP server and serve frontend"""
         async def health_check(request):
             return web.json_response({
                 "status": "healthy",
                 "bot": "telegram-copilot-bot",
-                "timestamp": asyncio.get_event_loop().time()
+                "timestamp": asyncio.get_event_loop().time(),
+                "frontend": "available at /app"
             })
+        
+        # Serve static files from dist directory
+        async def serve_frontend(request):
+            """Serve the React frontend"""
+            dist_dir = Path(__file__).parent / 'dist'
+            index_file = dist_dir / 'index.html'
+            
+            if not index_file.exists():
+                return web.Response(
+                    text="""
+                    <html>
+                    <head><title>Telegram Copilot Bot</title></head>
+                    <body>
+                        <h1>🤖 Telegram Copilot Bot</h1>
+                        <p>Frontend not built yet. Run <code>npm run build</code> to build the React app.</p>
+                        <p>Health check: <a href="/health">/health</a></p>
+                    </body>
+                    </html>
+                    """,
+                    content_type='text/html'
+                )
+            
+            with open(index_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            return web.Response(text=content, content_type='text/html')
             
         app = web.Application()
         app.router.add_get('/health', health_check)
         app.router.add_get('/', health_check)
+        app.router.add_get('/app', serve_frontend)
+        app.router.add_get('/app/', serve_frontend)
+        
+        # Serve static assets if dist directory exists
+        dist_dir = Path(__file__).parent / 'dist'
+        if dist_dir.exists():
+            app.router.add_static('/', dist_dir, name='static')
         
         # Start server in background without signal handlers
         try:
@@ -174,6 +208,7 @@ This bot is deployed using fully automated scripts - no manual configuration req
             await site.start()
             
             logger.info("Health check server started on port 8080")
+            logger.info("Frontend available at http://localhost:8080/app")
         except Exception as e:
             logger.warning(f"Could not start health server: {e}")
             

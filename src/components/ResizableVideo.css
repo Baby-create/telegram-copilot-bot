@@ -1,0 +1,132 @@
+.resizable-video-container {
+  position: relative;
+  min-width: 200px;
+  min-height: 150px;
+}
+
+.resize-handle {
+  position: absolute;
+  background: #007bff;
+  border: 1px solid #0056b3;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.resizable-video-container:hover .resize-handle {
+  opacity: 0.8;
+}
+
+.resize-handle:hover {
+  opacity: 1 !important;
+  background: #0056b3;
+}
+
+/* Corner handles */
+.resize-handle-nw {
+  top: -5px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  cursor: nw-resize;
+  border-radius: 50% 0 50% 0;
+}
+
+.resize-handle-ne {
+  top: -5px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  cursor: ne-resize;
+  border-radius: 0 50% 0 50%;
+}
+
+.resize-handle-sw {
+  bottom: -5px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  cursor: sw-resize;
+  border-radius: 0 50% 0 50%;
+}
+
+.resize-handle-se {
+  bottom: -5px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  cursor: se-resize;
+  border-radius: 50% 0 50% 0;
+}
+
+/* Edge handles */
+.resize-handle-n {
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 10px;
+  cursor: n-resize;
+  border-radius: 50px 50px 0 0;
+}
+
+.resize-handle-s {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 10px;
+  cursor: s-resize;
+  border-radius: 0 0 50px 50px;
+}
+
+.resize-handle-w {
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 20px;
+  cursor: w-resize;
+  border-radius: 50px 0 0 50px;
+}
+
+.resize-handle-e {
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 20px;
+  cursor: e-resize;
+  border-radius: 0 50px 50px 0;
+}
+
+/* Drag indicator */
+.resizable-video-container::before {
+  content: '⋮⋮';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  color: #fff;
+  background: rgba(0, 123, 255, 0.8);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.resizable-video-container:hover::before {
+  opacity: 1;
+}
+
+/* Loading state */
+.resizable-video-container video {
+  background: #000;
+}
+
+/* Focus styles */
+.resizable-video-container:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
