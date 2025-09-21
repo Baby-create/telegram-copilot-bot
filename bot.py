@@ -163,6 +163,8 @@ class TelegramCopilotBot:
         logger.info("Starting Telegram bot polling...")
         await self.app.initialize()
         await self.app.start()
+        # Note: depending on your python-telegram-bot version, updater may or may not be present.
+        # This follows the existing project usage.
         await self.app.updater.start_polling()
         try:
             await asyncio.Event().wait()
