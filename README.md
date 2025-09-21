@@ -132,7 +132,21 @@ The bot automatically searches for configuration in:
 ## File Structure
 
 ```
-telegram-copilot-bot/
+### Windows — Super One-Click (Recommended)
+- Double-click super_start.bat
+- Follow prompts to paste your TELEGRAM_BOT_TOKEN and optional OPENAI_API_KEY
+- Choose Local (Python) or Docker deployment
+- The script installs dependencies or builds containers and starts the bot automatically
+
+Security tip: Never commit your .env or share your bot token publicly. If a token is exposed, regenerate it in @BotFather.
+
+<!-- In File Structure, add: -->
+├── super_start.bat       # Windows super one-click launcher (guided .env + Local/Docker)
+
+<!-- In Deployment Options Summary, add: -->
+| Tool | OS | Prereqs | Notes |
+|---|---|---|---|
+| `super_start.bat` | Windows | Python 3.8+ or Docker Desktop | Super one-click guided setup (recommended) |telegram-copilot-bot/
 ├── bot.py                 # Main bot application
 ├── config_detector.py     # Automatic configuration detection
 ├── detect_config.py       # Standalone config detection script
