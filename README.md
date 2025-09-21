@@ -1,212 +1,186 @@
-# Telegram Copilot Bot
+#!/usr/bin/env python3
+"""
+Telegram Copilot Bot - Main Application
+Adds web UI (/app) and enhanced /health endpoint while keeping existing bot features.
+"""
 
-🤖 A fully automated Telegram bot with AI-powered responses and complete deployment automation.
+import os
+import sys
+import logging
+import asyncio
+from pathlib import Path
+from typing import Optional
 
-## Features
+from dotenv import load_dotenv
+from aiohttp import web
 
-- 🚀 **One-Click Deployment**: Double-click `deploy_bot.bat` to automatically deploy
-- 🔍 **Auto Configuration**: Automatically detects and populates required API keys
-- 🐳 **Docker Support**: Complete containerization with Docker and docker-compose
-- 🤖 **AI Integration**: OpenAI GPT-powered chat responses
-- 📱 **Web Interface**: React-based frontend with ResizableVideo component
-- 🎥 **Interactive Video Player**: Drag and resize video windows with mouse
-- 🔧 **Zero Manual Setup**: No manual configuration required
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
-## Quick Start (Windows)
+# OpenAI v1 client (auto-reads OPENAI_API_KEY from env)
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None  # OpenAI is optional
 
-1. **Download or clone this repository**
-2. **Double-click `deploy_bot.bat`** - That's it! 
+# Logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger("telegram-copilot-bot")
 
-The script will automatically:
-- Check Docker installation
-- Detect and configure API keys
-- Build and start the bot
-- Show configuration status
 
-## Requirements
+class TelegramCopilotBot:
+    def __init__(self):
+        self.telegram_token: Optional[str] = None
+        self.openai_client = None
+        self.app: Optional[Application] = None
 
-- Docker Desktop installed and running
-- Python 3.11+ (for configuration detection)
-- Telegram Bot Token (get from [@BotFather](https://t.me/BotFather))
-- OpenAI API Key (get from [OpenAI Platform](https://platform.openai.com/api-keys))
+    async def initialize(self):
+        load_dotenv()
 
-## Manual Setup (Advanced Users)
+        self.telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        if not self.telegram_token:
+            logger.error("TELEGRAM_BOT_TOKEN is missing. Please set it in your environment or .env file.")
+            sys.exit(1)
 
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+        # Initialize OpenAI if available and configured
+        if OpenAI and os.getenv("OPENAI_API_KEY"):
+            try:
+                self.openai_client = OpenAI()
+                logger.info("OpenAI client initialized.")
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenAI client: {e}")
+                self.openai_client = None
+        else:
+            logger.info("OpenAI not configured; AI responses will be disabled.")
 
-### 2. Configure Environment
-```bash
-# Run automatic configuration detection
-python detect_config.py
+        # Telegram handlers
+        self.app = Application.builder().token(self.telegram_token).build()
+        self.app.add_handler(CommandHandler("start", self.cmd_start))
+        self.app.add_handler(CommandHandler("help", self.cmd_help))
+        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.on_text))
 
-# Or manually create .env file
-cp .env.example .env
-# Edit .env with your keys
-```
+        # Start web server (health + frontend)
+        await self._start_web_server()
 
-### 3. Run with Docker
-```bash
-# Build and start
-docker-compose up --build -d
+    async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        msg = (
+            "🤖 Welcome to Telegram Copilot Bot!\n\n"
+            "Commands:\n"
+            "/start - Show welcome\n"
+            "/help - Show help\n\n"
+            "Web UI: visit http://localhost:8080/app after building the frontend.\n"
+        )
+        await update.message.reply_text(msg)
 
-# View logs
-docker-compose logs telegram-copilot-bot
+    async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        msg = (
+            "🔧 Help\n\n"
+            "Send any text and I'll reply. If OPENAI_API_KEY is configured, I'll use AI responses.\n"
+            "Health check: GET /health\n"
+            "Web UI: /app (requires `npm run build` to generate dist/)\n"
+        )
+        await update.message.reply_text(msg)
 
-# Stop
-docker-compose down
-```
+    async def on_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_text = update.message.text or ""
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
 
-### 4. Run Locally (Development)
-```bash
-python bot.py
-```
+        if self.openai_client:
+            try:
+                resp = self.openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant in a Telegram bot. Be concise."},
+                        {"role": "user", "content": user_text},
+                    ],
+                    max_tokens=300,
+                    temperature=0.7,
+                )
+                reply = (resp.choices[0].message.content or "").strip()
+            except Exception as e:
+                logger.error(f"OpenAI error: {e}")
+                reply = "AI is temporarily unavailable. Please try again later."
+        else:
+            reply = f"I received: {user_text}\n\nAI is disabled (no OPENAI_API_KEY)."
 
-## Configuration
+        await update.message.reply_text(reply)
 
-The bot automatically searches for configuration in:
-- Environment variables
-- Project files (.env, config files)
-- User configuration directories
-- Git history (safely)
+    async def _start_web_server(self):
+        async def health(_request):
+            return web.json_response(
+                {
+                    "status": "healthy",
+                    "service": "telegram-copilot-bot",
+                    "frontend": "use /app (requires dist/)",
+                }
+            )
 
-### Required Configuration
-- `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from @BotFather
-- `OPENAI_API_KEY`: Your OpenAI API key (optional, enables AI features)
+        async def app_page(_request):
+            dist_dir = Path(__file__).parent / "dist"
+            index_html = dist_dir / "index.html"
+            if not index_html.exists():
+                html = """
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Telegram Copilot Bot</title></head>
+<body>
+  <h1>Telegram Copilot Bot</h1>
+  <p>Frontend not built yet. Run: <code>npm install && npm run build</code></p>
+  <p>Health: <a href="/health">/health</a></p>
+</body>
+</html>
+                """.strip()
+                return web.Response(text=html, content_type="text/html")
 
-### Optional Configuration
-- `OPENAI_ORG_ID`: OpenAI organization ID (for organization accounts)
+            return web.FileResponse(index_html)
 
-## Bot Commands
+        app = web.Application()
+        app.router.add_get("/health", health)
+        app.router.add_get("/", health)
+        app.router.add_get("/app", app_page)
+        app.router.add_get("/app/", app_page)
 
-- `/start` - Welcome message and introduction
-- `/help` - Show available commands
-- **Text messages** - AI-powered responses using OpenAI
+        dist_dir = Path(__file__).parent / "dist"
+        if dist_dir.exists():
+            # Serve static assets (JS/CSS) from dist root
+            app.router.add_static("/", dist_dir, name="static")
 
-## Web Interface
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", 8080)
+        await site.start()
+        logger.info("Web server started on :8080 (health at /health, UI at /app)")
 
-The bot includes a React-based web interface featuring the **ResizableVideo** component:
+    async def run(self):
+        logger.info("Starting Telegram bot polling...")
+        await self.app.initialize()
+        await self.app.start()
+        # Note: depending on your python-telegram-bot version, updater may or may not be present.
+        # This follows the existing project usage.
+        await self.app.updater.start_polling()
+        try:
+            await asyncio.Event().wait()
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+        finally:
+            await self.app.updater.stop()
+            await self.app.stop()
+            await self.app.shutdown()
 
-### Access
-- **Health Check**: `http://localhost:8080/health`
-- **Web Interface**: `http://localhost:8080/app`
 
-### ResizableVideo Component Features
-- ✨ **Drag & Drop**: Click and drag video windows to move them around
-- 🔄 **8-Direction Resize**: Resize handles on all corners and edges
-- 📐 **Size Constraints**: Configurable min/max dimensions
-- 🎯 **Boundary Detection**: Keeps videos within viewport
-- 🎮 **Native Controls**: Full video player functionality
-- 💫 **Smooth Animations**: CSS transitions for better UX
+async def main():
+    bot = TelegramCopilotBot()
+    await bot.initialize()
+    await bot.run()
 
-### Development
-```bash
-# Install frontend dependencies
-npm install
 
-# Development mode
-npm run dev      # http://localhost:3000
-
-# Production build
-npm run build    # Creates dist/ folder
-```
-
-See [README_FRONTEND.md](README_FRONTEND.md) for detailed documentation.
-
-## File Structure
-
-```
-telegram-copilot-bot/
-├── bot.py                 # Main bot application
-├── config_detector.py     # Automatic configuration detection
-├── detect_config.py       # Standalone config detection script
-├── requirements.txt       # Python dependencies
-├── Dockerfile            # Docker container configuration
-├── docker-compose.yml    # Docker orchestration
-├── deploy_bot.bat        # Windows one-click deployment
-├── .gitignore           # Git ignore rules
-├── README.md            # This file
-├── README_FRONTEND.md   # Frontend documentation
-├── package.json         # Frontend dependencies
-├── webpack.config.js    # Frontend build configuration
-└── src/                 # React frontend source code
-    ├── components/
-    │   ├── ResizableVideo.jsx    # Drag & resize video component
-    │   └── ResizableVideo.css    # Component styles
-    ├── App.jsx          # Main React application
-    ├── App.css          # Application styles
-    ├── index.js         # React entry point
-    └── index.html       # HTML template
-```
-
-## Deployment Options
-
-### Option 1: One-Click Deployment (Recommended)
-- Double-click `deploy_bot.bat` on Windows
-- Everything is automated
-
-### Option 2: Docker Compose
-```bash
-docker-compose up --build -d
-```
-
-### Option 3: Docker Manual
-```bash
-docker build -t telegram-copilot-bot .
-docker run -d --env-file .env telegram-copilot-bot
-```
-
-### Option 4: Python Direct
-```bash
-python bot.py
-```
-
-## Troubleshooting
-
-### Bot Not Starting
-1. Check if Docker is running
-2. Verify .env file has correct tokens
-3. Check logs: `docker-compose logs telegram-copilot-bot`
-
-### Configuration Issues
-1. Run: `python detect_config.py`
-2. Check generated .env file
-3. Manually add missing configurations
-
-### Docker Issues
-1. Ensure Docker Desktop is installed and running
-2. Check available disk space
-3. Try: `docker-compose down && docker-compose up --build -d`
-
-## Security
-
-- API keys are automatically detected but never logged
-- .env files are excluded from git commits
-- Bot runs in isolated Docker container
-- Uses non-root user in container
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test with `deploy_bot.bat`
-5. Submit a pull request
-
-## License
-
-This project is open source and available under the MIT License.
-
-## Support
-
-If you encounter issues:
-1. Check the troubleshooting section
-2. Review Docker and bot logs
-3. Ensure all requirements are met
-4. Open an issue on GitHub
-
----
-
-🎉 **Enjoy your fully automated Telegram Copilot Bot!**
+if __name__ == "__main__":
+    asyncio.run(main())
