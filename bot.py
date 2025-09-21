@@ -1,204 +1,186 @@
 #!/usr/bin/env python3
 """
 Telegram Copilot Bot - Main Application
-Automated deployment with configuration detection
+Adds web UI (/app) and enhanced /health endpoint while keeping existing bot features.
 """
 
 import os
 import sys
 import logging
 import asyncio
-from typing import Optional, Dict, Any
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import openai
+from pathlib import Path
+from typing import Optional
+
 from dotenv import load_dotenv
-from config_detector import ConfigDetector
 from aiohttp import web
 
-# Configure logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
 )
-logger = logging.getLogger(__name__)
+
+# OpenAI v1 client (auto-reads OPENAI_API_KEY from env)
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None  # OpenAI is optional
+
+# Logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger("telegram-copilot-bot")
+
 
 class TelegramCopilotBot:
-    """Main Telegram Copilot Bot class"""
-    
     def __init__(self):
-        self.config_detector = ConfigDetector()
-        self.telegram_token = None
-        self.openai_api_key = None
+        self.telegram_token: Optional[str] = None
         self.openai_client = None
-        self.application = None
-        self.health_server = None
-        
+        self.app: Optional[Application] = None
+
     async def initialize(self):
-        """Initialize bot with auto-detected configuration"""
-        logger.info("Initializing Telegram Copilot Bot...")
-        
-        # Auto-detect and populate configuration
-        await self.config_detector.detect_and_populate_config()
-        
-        # Load environment variables
         load_dotenv()
-        
-        # Get configuration
-        self.telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        
+
+        self.telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
         if not self.telegram_token:
-            logger.error("TELEGRAM_BOT_TOKEN not found! Please check configuration.")
+            logger.error("TELEGRAM_BOT_TOKEN is missing. Please set it in your environment or .env file.")
             sys.exit(1)
-            
-        if not self.openai_api_key:
-            logger.warning("OPENAI_API_KEY not found! AI features will be disabled.")
-            self.openai_client = None
+
+        # Initialize OpenAI if available and configured
+        if OpenAI and os.getenv("OPENAI_API_KEY"):
+            try:
+                self.openai_client = OpenAI()
+                logger.info("OpenAI client initialized.")
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenAI client: {e}")
+                self.openai_client = None
         else:
-            self.openai_client = openai.OpenAI(api_key=self.openai_api_key)
-            
-        # Create application
-        self.application = Application.builder().token(self.telegram_token).build()
-        
-        # Add handlers
-        self.application.add_handler(CommandHandler("start", self.start_command))
-        self.application.add_handler(CommandHandler("help", self.help_command))
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-        
-        logger.info("Bot initialized successfully!")
-        
-        # Start health check server
-        await self._start_health_server()
-        
-    async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command"""
-        welcome_message = """
-🤖 Welcome to Telegram Copilot Bot!
+            logger.info("OpenAI not configured; AI responses will be disabled.")
 
-This bot provides AI-powered assistance with full automation capabilities.
+        # Telegram handlers
+        self.app = Application.builder().token(self.telegram_token).build()
+        self.app.add_handler(CommandHandler("start", self.cmd_start))
+        self.app.add_handler(CommandHandler("help", self.cmd_help))
+        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.on_text))
 
-Available commands:
-/start - Show this welcome message
-/help - Show available commands
+        # Start web server (health + frontend)
+        await self._start_web_server()
 
-Just send me any message and I'll help you with AI-powered responses!
-        """
-        await update.message.reply_text(welcome_message)
-        
-    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /help command"""
-        help_message = """
-🔧 Available Commands:
+    async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        msg = (
+            "🤖 Welcome to Telegram Copilot Bot!\n\n"
+            "Commands:\n"
+            "/start - Show welcome\n"
+            "/help - Show help\n\n"
+            "Web UI: visit http://localhost:8080/app after building the frontend.\n"
+        )
+        await update.message.reply_text(msg)
 
-/start - Welcome message and introduction
-/help - Show this help message
+    async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        msg = (
+            "🔧 Help\n\n"
+            "Send any text and I'll reply. If OPENAI_API_KEY is configured, I'll use AI responses.\n"
+            "Health check: GET /health\n"
+            "Web UI: /app (requires `npm run build` to generate dist/)\n"
+        )
+        await update.message.reply_text(msg)
 
-💬 Text Messages:
-Send any text message and I'll provide AI-powered responses using OpenAI.
-
-🚀 Features:
-- Automated configuration detection
-- AI-powered chat responses
-- Full deployment automation
-- Docker containerization support
-
-This bot is deployed using fully automated scripts - no manual configuration required!
-        """
-        await update.message.reply_text(help_message)
-        
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle text messages with AI response"""
-        user_message = update.message.text
-        user_name = update.effective_user.first_name or "User"
-        
-        logger.info(f"Received message from {user_name}: {user_message}")
-        
-        # Send typing indicator
+    async def on_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_text = update.message.text or ""
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        
-        try:
-            if self.openai_client:
-                # Generate AI response
-                response = await self.generate_ai_response(user_message)
-            else:
-                response = f"Hello {user_name}! I received your message: '{user_message}'\n\n" \
-                          "Note: AI features are currently disabled. Please configure OPENAI_API_KEY for full functionality."
-                          
-            await update.message.reply_text(response)
-            
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            await update.message.reply_text(
-                "Sorry, I encountered an error processing your message. Please try again."
+
+        if self.openai_client:
+            try:
+                resp = self.openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant in a Telegram bot. Be concise."},
+                        {"role": "user", "content": user_text},
+                    ],
+                    max_tokens=300,
+                    temperature=0.7,
+                )
+                reply = (resp.choices[0].message.content or "").strip()
+            except Exception as e:
+                logger.error(f"OpenAI error: {e}")
+                reply = "AI is temporarily unavailable. Please try again later."
+        else:
+            reply = f"I received: {user_text}\n\nAI is disabled (no OPENAI_API_KEY)."
+
+        await update.message.reply_text(reply)
+
+    async def _start_web_server(self):
+        async def health(_request):
+            return web.json_response(
+                {
+                    "status": "healthy",
+                    "service": "telegram-copilot-bot",
+                    "frontend": "use /app (requires dist/)",
+                }
             )
-            
-    async def generate_ai_response(self, message: str) -> str:
-        """Generate AI response using OpenAI"""
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a helpful AI assistant integrated into a Telegram bot. Provide concise, helpful responses."},
-                    {"role": "user", "content": message}
-                ],
-                max_tokens=500,
-                temperature=0.7
-            )
-            
-            return response.choices[0].message.content.strip()
-            
-        except Exception as e:
-            logger.error(f"Error generating AI response: {e}")
-            return "I'm sorry, I'm having trouble generating a response right now. Please try again."
-            
-    async def _start_health_server(self):
-        """Start health check HTTP server"""
-        async def health_check(request):
-            return web.json_response({
-                "status": "healthy",
-                "bot": "telegram-copilot-bot",
-                "timestamp": asyncio.get_event_loop().time()
-            })
-            
+
+        async def app_page(_request):
+            dist_dir = Path(__file__).parent / "dist"
+            index_html = dist_dir / "index.html"
+            if not index_html.exists():
+                html = """
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Telegram Copilot Bot</title></head>
+<body>
+  <h1>Telegram Copilot Bot</h1>
+  <p>Frontend not built yet. Run: <code>npm install && npm run build</code></p>
+  <p>Health: <a href="/health">/health</a></p>
+</body>
+</html>
+                """.strip()
+                return web.Response(text=html, content_type="text/html")
+
+            return web.FileResponse(index_html)
+
         app = web.Application()
-        app.router.add_get('/health', health_check)
-        app.router.add_get('/', health_check)
-        
-        # Start server in background without signal handlers
-        try:
-            runner = web.AppRunner(app)
-            await runner.setup()
-            
-            site = web.TCPSite(runner, '0.0.0.0', 8080)
-            await site.start()
-            
-            logger.info("Health check server started on port 8080")
-        except Exception as e:
-            logger.warning(f"Could not start health server: {e}")
-            
+        app.router.add_get("/health", health)
+        app.router.add_get("/", health)
+        app.router.add_get("/app", app_page)
+        app.router.add_get("/app/", app_page)
+
+        dist_dir = Path(__file__).parent / "dist"
+        if dist_dir.exists():
+            # Serve static assets (JS/CSS) from dist root
+            app.router.add_static("/", dist_dir, name="static")
+
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", 8080)
+        await site.start()
+        logger.info("Web server started on :8080 (health at /health, UI at /app)")
+
     async def run(self):
-        """Run the bot"""
-        logger.info("Starting Telegram Copilot Bot...")
-        await self.application.initialize()
-        await self.application.start()
-        await self.application.updater.start_polling()
-        
-        # Keep the bot running
+        logger.info("Starting Telegram bot polling...")
+        await self.app.initialize()
+        await self.app.start()
+        # Note: depending on your python-telegram-bot version, updater may or may not be present.
+        # This follows the existing project usage.
+        await self.app.updater.start_polling()
         try:
             await asyncio.Event().wait()
         except KeyboardInterrupt:
-            logger.info("Shutting down bot...")
+            logger.info("Shutting down...")
         finally:
-            await self.application.updater.stop()
-            await self.application.stop()
-            await self.application.shutdown()
+            await self.app.updater.stop()
+            await self.app.stop()
+            await self.app.shutdown()
+
 
 async def main():
-    """Main function"""
     bot = TelegramCopilotBot()
     await bot.initialize()
     await bot.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

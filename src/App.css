@@ -1,0 +1,253 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.app-header {
+  text-align: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.app-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.app-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.8rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.app-header p {
+  margin: 0;
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+.video-selector {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 100%;
+}
+
+.video-selector h3 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.5rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.video-selector h4 {
+  color: #555;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.sample-videos {
+  margin-bottom: 2rem;
+}
+
+.video-button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.video-button:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.custom-video {
+  margin-bottom: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #eee;
+}
+
+.custom-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.url-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  min-width: 200px;
+}
+
+.url-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.submit-button {
+  padding: 0.75rem 1.5rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.submit-button:hover {
+  background: #1e7e34;
+}
+
+.features {
+  padding-top: 2rem;
+  border-top: 1px solid #eee;
+}
+
+.features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.features li {
+  padding: 0.5rem 0;
+  color: #555;
+  font-size: 1rem;
+}
+
+.app-demo {
+  flex: 1;
+  position: relative;
+  padding: 1rem;
+}
+
+.demo-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  color: white;
+}
+
+.reset-button {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.reset-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.demo-info {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.demo-area {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 200px);
+  min-height: 400px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-footer {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.1);
+  color: white;
+  font-size: 0.9rem;
+}
+
+.app-footer a {
+  color: #87ceeb;
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1rem;
+  }
+  
+  .app-header h1 {
+    font-size: 2rem;
+  }
+  
+  .app-header h2 {
+    font-size: 1.4rem;
+  }
+  
+  .app-main {
+    padding: 1rem;
+  }
+  
+  .video-selector {
+    padding: 1.5rem;
+  }
+  
+  .custom-form {
+    flex-direction: column;
+  }
+  
+  .url-input {
+    min-width: auto;
+  }
+  
+  .demo-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  
+  .demo-area {
+    height: calc(100vh - 250px);
+  }
+}
