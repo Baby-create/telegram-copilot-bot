@@ -1,0 +1,7 @@
+---
+Copilot permission verification file
+Repository: Baby-create/telegram-copilot-bot
+Created by: GitHub Copilot Chat automation
+Timestamp (UTC): 2025-09-23 00:33:53
+Note: This file is safe to delete after verification.
+---
