@@ -1,0 +1,21 @@
+Title: Verify Copilot permissions
+
+Body:
+Verify that GitHub Copilot Chat has read/write access to this repository by creating a dedicated test branch and a lightweight verification file.
+
+What this PR includes:
+- Branch: copilot-auth-check/2025-09-23-00-33-53-utc
+- File: .copilot-auth-check.txt (at repository root)
+- Purpose: Serves as an auditable marker confirming Copilot’s ability to push commits and open pull requests
+
+Details:
+- Created by: GitHub Copilot Chat automation
+- Timestamp (UTC): 2025-09-23 00:33:53
+- This file is safe to delete after verification
+
+Next steps:
+- Review the changes
+- If everything looks good, merge this PR or close it after verification
+- Optionally delete the branch after merge/close
+
+This PR is intentionally left open for manual review and verification.
